@@ -511,6 +511,10 @@ impl RcrdrApp {
     }
 
     fn show_converting_screen(&mut self, ui: &mut Ui) {
+        // Flag to track if we should transition to main screen
+        let mut should_transition = false;
+        let time = ui.input(|i| i.time);
+
         // Process any incoming logs
         if let Some(log_receiver) = &self.converting_log_receiver {
             while let Ok(log) = log_receiver.try_recv() {
@@ -541,11 +545,19 @@ impl RcrdrApp {
                     }
                 }
 
-                // Check for completion
-                if log.contains("video:") && log.contains("audio:") && log.contains("subtitle:") {
+                // Check for completion messages
+                if log.contains("GIF conversion completed successfully") {
                     self.converting_progress = 1.0;
-                    // Will transition back to main screen after progress reaches 1.0
+                    should_transition = true;
                 }
+            }
+        }
+
+        // Check if we should transition after processing logs
+        if self.converting_progress >= 1.0 && time > 1.0 {
+            // Allow a few seconds for user to see the completion message
+            if !should_transition {
+                should_transition = true;
             }
         }
 
@@ -562,7 +574,16 @@ impl RcrdrApp {
 
             ui.add_space(20.0);
 
-            ui.label("This may take a while depending on the video length...");
+            if self.converting_progress >= 1.0 {
+                ui.label(
+                    RichText::new("Conversion complete!")
+                        .color(Color32::GREEN)
+                        .size(18.0),
+                );
+                ui.label("Returning to main screen...");
+            } else {
+                ui.label("This may take a while depending on the video length...");
+            }
 
             // Show the most recent logs
             ui.add_space(20.0);
@@ -574,20 +595,17 @@ impl RcrdrApp {
                         ui.label(log);
                     }
                 });
-
-            // If conversion is complete, show a button to return to main screen
-            if self.converting_progress >= 1.0 {
-                ui.add_space(20.0);
-                if ui
-                    .button("Conversion Complete! Return to Main Screen")
-                    .clicked()
-                {
-                    self.state = AppState::Main;
-                    self.converting_log_receiver = None;
-                    self.converting_progress = 0.0;
-                }
-            }
         });
+
+        // Handle transition after UI is drawn
+        if should_transition {
+            // Add a delay before transitioning to ensure user sees completion
+            thread::sleep(Duration::from_millis(1500));
+
+            self.state = AppState::Main;
+            self.converting_log_receiver = None;
+            self.converting_progress = 0.0;
+        }
     }
 
     fn show_testing_screen(&mut self, ui: &mut Ui) {
@@ -1120,8 +1138,20 @@ fn convert_to_gif_gui(
         return Err("GIF conversion failed".into());
     }
 
-    log_sender.send("GIF conversion completed successfully!".to_string())?;
-    log_sender.send(format!("Saved to {}", output))?;
+    // Add a small delay to ensure file is properly written
+    thread::sleep(Duration::from_millis(500));
+
+    // Verify the output GIF file exists
+    if let Ok(metadata) = fs::metadata(output) {
+        if metadata.len() > 0 {
+            log_sender.send("GIF conversion completed successfully!".to_string())?;
+            log_sender.send(format!("Saved to {}", output))?;
+        } else {
+            log_sender.send("Warning: The output GIF file seems to be empty.".to_string())?;
+        }
+    } else {
+        log_sender.send("Warning: Could not find the output GIF file.".to_string())?;
+    }
 
     Ok(())
 }
