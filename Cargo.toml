@@ -1,13 +1,27 @@
 [package]
 name = "rcrdr"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-authors = ["User"]
-description = "A screen recorder application that can save to video and convert to GIF"
+authors = ["Your Name <your.email@example.com>"]
+description = "A simple screen recorder application with GUI"
+repository = "https://github.com/yourusername/rcrdr"
+license = "MIT"
 
 [dependencies]
-clap = { version = "4.4", features = ["derive"] }
-ctrlc = "3.4"
+eframe = "0.22.0"                                 # egui framework
+egui = "0.22.0"                                   # UI library
+open = "3.2"                                      # For opening URLs and files
+rfd = "0.11.0"                                    # File dialog
+chrono = "0.4"                                    # For timestamp handling
+clap = { version = "4.1", features = ["derive"] }
+ctrlc = "3.2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# For better optimized release builds
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3
