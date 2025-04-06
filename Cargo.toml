@@ -1,0 +1,13 @@
+[package]
+name = "rcrdr"
+version = "0.1.0"
+edition = "2021"
+authors = ["User"]
+description = "A screen recorder application that can save to video and convert to GIF"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+ctrlc = "3.4"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
